@@ -5,6 +5,10 @@ networks:
     name: mynet1
 
 volumes:
+  elasticsearch-data:
+    driver: local
+  fluentd-logs:
+    driver: local
   postgres-data:
     driver: local
   postgres-logs:
@@ -20,7 +24,7 @@ services:
     ports:
       - '8080:8080'
     depends_on: # 在這個服務起來之後，才會啟動當前的服務
-      - postgres
+      - fluentd
     volumes:
       - backend-logs:/var/log/oms
     networks:
@@ -41,10 +45,7 @@ services:
     build:
       context: ./postgres
       dockerfile: Dockerfile
-    environment:
-      POSTGRES_DB: your_database_name
-      POSTGRES_USER: your_username
-      POSTGRES_PASSWORD: your_password
+    env_file: .env
     ports:
       - '5432:5432'
     volumes: # 將 db-data 裡面的 postgres 的資料，跟容器裡 :後這個路徑理的東西，掛載，就是量子糾纏
@@ -54,3 +55,53 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - mynet1
+
+  fluentd:
+    build:
+      context: ../../fluentd
+      dockerfile: Dockerfile
+    image: ntw/fluentd
+    container_name: fluentd
+    hostname: fluentd
+    networks:
+      - mynet1
+    ports:
+      - '24224:24224'
+    volumes:
+      - ${PWD}/fluent.conf:/fluentd/etc/fluent.conf
+      - fluentd-logs:/fluentd/log
+    depends_on:
+      - 'elasticsearch'
+    restart: unless-stopped
+
+  elasticsearch:
+    image: elasticsearch:7.13.2
+    container_name: elasticsearch
+    hostname: elasticsearch
+    environment:
+      - 'discovery.type=single-node'
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+      - 'xpack.security.enabled=false'
+    expose:
+      - '9200'
+    ports:
+      - '9200:9200'
+    networks:
+      - mynet1
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  kibana:
+    image: kibana:7.13.2
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - '5601:5601'
+    networks:
+      - mynet1
+    environment:
+      - ELASTICSEARCH_HOSTS="http://elasticsearch:9200"
+    restart: unless-stopped
+    depends_on:
+      - 'elasticsearch'
