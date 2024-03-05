@@ -1,0 +1,56 @@
+version: '3'
+
+networks:
+  mynet1:
+    name: mynet1
+
+volumes:
+  postgres-data:
+    driver: local
+  postgres-logs:
+    driver: local
+  backend-logs:
+    driver: local
+
+services:
+  backend:
+    build:
+      context: ./backend # 這邊是指路徑的意思
+      dockerfile: Dockerfile #單純的檔案名稱
+    ports:
+      - '8080:8080'
+    depends_on: # 在這個服務起來之後，才會啟動當前的服務
+      - postgres
+    volumes:
+      - backend-logs:/var/log/oms
+    networks:
+      - mynet1
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    depends_on:
+      - backend
+    networks:
+      - mynet1
+
+  postgres:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_DB: your_database_name
+      POSTGRES_USER: your_username
+      POSTGRES_PASSWORD: your_password
+    ports:
+      - '5432:5432'
+    volumes: # 將 db-data 裡面的 postgres 的資料，跟容器裡 :後這個路徑理的東西，掛載，就是量子糾纏
+      # 必須要掛載是因為如果 container 停止或是刪除，那資料也會一併刪除
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro # 掛載到指定的 initdb.d 這個資料夾，根據 postgres 官方的 images ，會來這個資料夾找 .sql 的檔案，並且執行
+      - postgres-logs:/var/log/postgresql
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - mynet1
