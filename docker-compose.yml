@@ -29,6 +29,11 @@ services:
       - backend-logs:/var/log/oms
     networks:
       - mynet1
+    logging:
+      driver: 'fluentd'
+      options:
+        fluentd-address: '127.0.0.1:24224'
+        tag: backend
 
   frontend:
     build:
@@ -40,6 +45,11 @@ services:
       - backend
     networks:
       - mynet1
+    logging:
+      driver: 'fluentd'
+      options:
+        fluentd-address: '127.0.0.1:24224'
+        tag: frontend
 
   postgres:
     build:
@@ -58,7 +68,7 @@ services:
 
   fluentd:
     build:
-      context: ../../fluentd
+      context: ./fluentd
       dockerfile: Dockerfile
     image: ntw/fluentd
     container_name: fluentd
