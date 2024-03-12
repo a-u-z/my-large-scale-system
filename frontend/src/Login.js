@@ -1,10 +1,13 @@
 // Login.js
 import React, { useState } from 'react';
+import { trace } from '@opentelemetry/api';
 
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginMessage, setLoginMessage] = useState('');
+
+  const span = trace.getTracer('login-tracer').startSpan('login');
 
   const handleLogin = async () => {
     try {
@@ -17,7 +20,10 @@ function Login() {
       });
 
       if (response.ok) {
+        // End the span when the operation is complete
+        span.end();
         setLoginMessage('登入成功');
+
         // 在實際應用中，你可能會在這裡處理登入成功的相應邏輯，例如導向到其他頁面
       } else {
         setLoginMessage('帳號或密碼錯誤');
@@ -25,6 +31,9 @@ function Login() {
     } catch (error) {
       setLoginMessage('發生錯誤');
     }
+
+    // End the span in case of an error
+    span.end();
   };
 
   const handleKeyDown = event => {

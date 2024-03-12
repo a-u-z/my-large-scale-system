@@ -9,10 +9,10 @@ import (
 
 const (
 	host = "postgres" // 建立 images 的時候用這個
-	// host     = "localhost" // 在本機跑的時候用這個
+	//	host = "localhost" // 在本機跑的時候用這個
 	port     = 5432
-	user     = "your_username"
-	password = "your_password"
+	user     = "postgres"
+	password = "postgres"
 	dbname   = "your_database_name"
 )
 

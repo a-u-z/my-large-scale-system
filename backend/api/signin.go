@@ -5,8 +5,13 @@ import (
 	"encoding/json"
 	"io"
 	pg "mlss/db/postgres"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/opentracing/opentracing-go"
+	"github.com/uber/jaeger-client-go"
+	jaegercfg "github.com/uber/jaeger-client-go/config"
+	jaegerlog "github.com/uber/jaeger-client-go/log"
 )
 
 type User struct {
@@ -16,6 +21,32 @@ type User struct {
 
 func SignInHandler(db *pg.Database) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		cfg := jaegercfg.Configuration{
+			ServiceName: "backend", // 对其发起请求的的调用链，叫什么服务
+			Sampler: &jaegercfg.SamplerConfig{
+				Type:  jaeger.SamplerTypeConst,
+				Param: 1,
+			},
+			Reporter: &jaegercfg.ReporterConfig{
+				LogSpans:           true,
+				LocalAgentHostPort: "jaeger-agent:6831",
+			},
+		}
+
+		jLogger := jaegerlog.StdLogger
+		tracer, closer, err := cfg.NewTracer(
+			jaegercfg.Logger(jLogger),
+		)
+
+		defer closer.Close()
+		if err != nil {
+		}
+
+		// 创建第一个 span A
+		parentSpan := tracer.StartSpan("A")
+		defer parentSpan.Finish()
+
+		B(tracer, parentSpan)
 		// 讀取請求的 Body
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -52,4 +83,13 @@ func SignInHandler(db *pg.Database) gin.HandlerFunc {
 		// 驗證成功
 		c.JSON(200, gin.H{"message": "Logged in successfully"})
 	}
+}
+func B(tracer opentracing.Tracer, parentSpan opentracing.Span) {
+	// 继承上下文关系，创建子 span
+	childSpan := tracer.StartSpan(
+		"B",
+		opentracing.ChildOf(parentSpan.Context()),
+	)
+	time.Sleep(time.Second * 5)
+	defer childSpan.Finish() // 可手动调用 Finish()
 }
